@@ -13,7 +13,7 @@ log = "0.4.29"
 pulldown-cmark = "0.13.0"
 serde = "1.0.228"
 shared = { version = "0.1.0", path = "../shared" }
-wasm-bindgen = "0.2.110"
+wasm-bindgen = "0.2.111"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.60"
