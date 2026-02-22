@@ -1,0 +1,7 @@
+target/
+.env
+dist/
+
+# IDE
+.idea/
+.vscode/
