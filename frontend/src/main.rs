@@ -19,13 +19,13 @@ fn App() -> impl IntoView {
 
     // Sync state to LocalStorage automatically when it changes
     Effect::new(move |_| {
-        let _ = LocalStorage::set("gitcoach_messages", &messages.get());
+        let _ = LocalStorage::set("gitcoach_messages", messages.get());
     });
     Effect::new(move |_| {
-        let _ = LocalStorage::set("gitcoach_skills", &skill_tree.get());
+        let _ = LocalStorage::set("gitcoach_skills", skill_tree.get());
     });
     Effect::new(move |_| {
-        let _ = LocalStorage::set("gitcoach_suggestions", &suggestions.get());
+        let _ = LocalStorage::set("gitcoach_suggestions", suggestions.get());
     });
     
     // Reactive state for user input
@@ -38,10 +38,10 @@ fn App() -> impl IntoView {
     let (domain, set_domain) = signal(initial_domain);
 
     Effect::new(move |_| {
-        let _ = LocalStorage::set("gitcoach_persona", &persona.get());
+        let _ = LocalStorage::set("gitcoach_persona", persona.get());
     });
     Effect::new(move |_| {
-        let _ = LocalStorage::set("gitcoach_domain", &domain.get());
+        let _ = LocalStorage::set("gitcoach_domain", domain.get());
     });
 
     let submit_message = Action::new_local(move |_: &()| async move {
