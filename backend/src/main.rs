@@ -84,24 +84,24 @@ async fn fetch_github_issues(domain: &DomainGoal) -> String {
 
     println!("Fetching github issues: {}", url);
 
-    let res = client.get(&url)
+    let res = client.get(url)
         .header("User-Agent", "GitCoach-AI-Mentor-v1.0")
         .send()
         .await;
         
     match res {
         Ok(response) if response.status().is_success() => {
-            if let Ok(json) = response.json::<serde_json::Value>().await {
-                if let Some(items) = json.get("items").and_then(|i| i.as_array()) {
-                    let mut issue_texts = Vec::new();
-                    for item in items.iter().take(3) {
-                        let title = item.get("title").and_then(|t| t.as_str()).unwrap_or("Unknown Title");
-                        let html_url = item.get("html_url").and_then(|h| h.as_str()).unwrap_or("");
-                        issue_texts.push(format!("- [**{}**]({})", title, html_url));
-                    }
-                    if !issue_texts.is_empty() {
-                        return format!("Here are some live open 'good first issues' for {} (Language: {}):\n{}", domain_str, lang_query, issue_texts.join("\n"));
-                    }
+            if let Ok(json) = response.json::<serde_json::Value>().await
+                && let Some(items) = json.get("items").and_then(|i| i.as_array())
+            {
+                let mut issue_texts = Vec::new();
+                for item in items.iter().take(3) {
+                    let title = item.get("title").and_then(|t| t.as_str()).unwrap_or("Unknown Title");
+                    let html_url = item.get("html_url").and_then(|h| h.as_str()).unwrap_or("");
+                    issue_texts.push(format!("- [**{}**]({})", title, html_url));
+                }
+                if !issue_texts.is_empty() {
+                    return format!("Here are some live open 'good first issues' for {} (Language: {}):\n{}", domain_str, lang_query, issue_texts.join("\n"));
                 }
             }
             "No open issues found right now.".to_string()
@@ -114,24 +114,22 @@ async fn fetch_repo_contributing_md(repo: &str) -> String {
     let client = ReqwestClient::new();
     // Try CONTRIBUTING.md first
     let url = format!("https://raw.githubusercontent.com/{}/HEAD/CONTRIBUTING.md", repo);
-    let res = client.get(&url).send().await;
+    let res = client.get(url).send().await;
 
-    if let Ok(response) = res {
-        if response.status().is_success() {
-            if let Ok(text) = response.text().await {
-                return format!("CONTRIBUTING.md found:\n{}", text.chars().take(3000).collect::<String>()); // cap at 3000 chars to save context
-            }
-        }
+    if let Ok(response) = res
+        && response.status().is_success()
+        && let Ok(text) = response.text().await
+    {
+        return format!("CONTRIBUTING.md found:\n{}", text.chars().take(3000).collect::<String>()); // cap at 3000 chars to save context
     }
     
     // Fallback to README
     let fallback_url = format!("https://api.github.com/repos/{}/readme", repo);
-    if let Ok(response) = client.get(&fallback_url).header("User-Agent", "GitCoach").header("Accept", "application/vnd.github.v3.raw").send().await {
-        if response.status().is_success() {
-            if let Ok(text) = response.text().await {
-                return format!("No contributing.md found. README found:\n{}", text.chars().take(3000).collect::<String>());
-            }
-        }
+    if let Ok(response) = client.get(&fallback_url).header("User-Agent", "GitCoach").header("Accept", "application/vnd.github.v3.raw").send().await
+        && response.status().is_success()
+        && let Ok(text) = response.text().await
+    {
+        return format!("No contributing.md found. README found:\n{}", text.chars().take(3000).collect::<String>());
     }
     
     "Failed to fetch repository documentation.".to_string()
@@ -165,7 +163,7 @@ pub fn generate_system_context(persona: &Persona, domain: &DomainGoal, skill_tre
           \"fetch_repo_rag\": \"If they asked how to start contributing to a specific repository, put the 'owner/repo' here so the backend can fetch the CONTRIBUTING.md. Otherwise leave null.\"\n\
         }}", 
         persona_instruction, 
-        domain.to_string(),
+        domain,
         user_skills,
         if !issues_context.is_empty() {
             format!("Live GitHub issues you MUST recommend and link to the user:\n{}", issues_context)
@@ -307,19 +305,19 @@ fn execute_rag_agent<'a>(
             match serde_json::from_str::<AiJsonResponse>(&cleaned_json) {
                 Ok(parsed) => {
                     // Check if the agent wants to perform a tool call (RAG)
-                    if let Some(repo) = parsed.fetch_repo_rag {
-                        if !repo.is_empty() && repo != "null" {
+                    if let Some(repo) = parsed.fetch_repo_rag
+                        && !repo.is_empty() && repo != "null"
+                    {
                             println!("[RAG]: Fetching repository for {}", repo);
 
                             let rag_context = fetch_repo_contributing_md(&repo).await;
                             
                             // Append intermediate tool call to history so it knows what it fetched
                             history.push(GeminiMessage::model(cleaned_json.clone()).content);
-                            history.push(GeminiMessage::user(&format!("SYSTEM TOOL FETCH RESULT for {}:\n{}", repo, rag_context)).content);
+                            history.push(GeminiMessage::user(format!("SYSTEM TOOL FETCH RESULT for {}:\n{}", repo, rag_context)).content);
                             
                             // Recurse to get the final answer built on the RAG context!
                             return execute_rag_agent(client, history, system_context, depth + 1).await;
-                        }
                     }
 
                     // Append the actual final response to history
@@ -344,7 +342,7 @@ fn execute_rag_agent<'a>(
                         let rag_context = fetch_repo_contributing_md(&repo).await;
                         // Append intermediate tool call to history
                         history.push(GeminiMessage::model(cleaned_json.clone()).content);
-                        history.push(GeminiMessage::user(&format!("SYSTEM TOOL FETCH RESULT for {}:\n{}", repo, rag_context)).content);
+                        history.push(GeminiMessage::user(format!("SYSTEM TOOL FETCH RESULT for {}:\n{}", repo, rag_context)).content);
                         return execute_rag_agent(client, history, system_context, depth + 1).await;
                     }
 
@@ -403,16 +401,15 @@ pub fn fallback_parse_json(cleaned_json: &str) -> (String, Vec<String>, Option<S
     }
 
     // 2. Manually extract suggestions
-    if let Some(sugg_start) = cleaned_json.find("\"suggestions\"") {
-        if let Some(sugg_end) = cleaned_json[sugg_start..].find(']') {
-            if let Some(ob) = cleaned_json[sugg_start..sugg_start+sugg_end].find('[') {
-                let sugg_block = &cleaned_json[sugg_start + ob + 1 .. sugg_start + sugg_end];
-                for line in sugg_block.split(',') {
-                    let s = line.trim().trim_matches('"').trim();
-                    if !s.is_empty() {
-                        fallback_suggestions.push(s.to_string());
-                    }
-                }
+    if let Some(sugg_start) = cleaned_json.find("\"suggestions\"")
+        && let Some(sugg_end) = cleaned_json[sugg_start..].find(']')
+        && let Some(ob) = cleaned_json[sugg_start..sugg_start+sugg_end].find('[')
+    {
+        let sugg_block = &cleaned_json[sugg_start + ob + 1 .. sugg_start + sugg_end];
+        for line in sugg_block.split(',') {
+            let s = line.trim().trim_matches('"').trim();
+            if !s.is_empty() {
+                fallback_suggestions.push(s.to_string());
             }
         }
     }
@@ -422,12 +419,12 @@ pub fn fallback_parse_json(cleaned_json: &str) -> (String, Vec<String>, Option<S
         let rag_part = &cleaned_json[rag_start..];
         if let Some(colon_idx) = rag_part.find(':') {
             let after_colon = rag_part[colon_idx+1..].trim();
-            if after_colon.starts_with('"') {
-                if let Some(end_quote) = after_colon[1..].find('"') {
-                    let rag = &after_colon[1..1+end_quote];
-                    if !rag.is_empty() && rag != "null" {
-                        fallback_rag = Some(rag.to_string());
-                    }
+            if let Some(stripped) = after_colon.strip_prefix('"')
+                && let Some(end_quote) = stripped.find('"')
+            {
+                let rag = &stripped[..end_quote];
+                if !rag.is_empty() && rag != "null" {
+                    fallback_rag = Some(rag.to_string());
                 }
             }
         }
