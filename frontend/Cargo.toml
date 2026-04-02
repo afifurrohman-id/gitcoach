@@ -8,7 +8,7 @@ console_error_panic_hook = "0.1.7"
 console_log = "1.0.0"
 gloo-net = "0.6.0"
 gloo-storage = "0.3.0"
-leptos = { version = "0.8.16", features = ["csr"] }
+leptos = { version = "0.8.17", features = ["csr"] }
 log = "0.4.29"
 pulldown-cmark = "0.13.0"
 serde = "1.0.228"
